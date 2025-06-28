@@ -1,0 +1,10 @@
+# .readthedocs.yaml
+version: 2
+
+sphinx:
+  configuration: docs/conf.py  # 指定 Sphinx 配置路径
+
+python:
+  version: "3.9"  # 也可以改成 "3.10"
+  install:
+    - requirements: requirements.txt  # 如果你有依赖文件就加上
