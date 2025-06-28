@@ -25,6 +25,18 @@ print(f"Using temporary directory: {TEMP_DIR}")
 
 
 def ss_validity_loss(rna_strct: str) -> float:
+    """
+    Calculate a validity loss score for an RNA secondary structure in dot-bracket notation.
+
+    The score reflects the number of unmatched parentheses normalized by
+    the length of the structure excluding dots. A lower score means more valid structure.
+
+    Args:
+        rna_strct (str): RNA secondary structure string using dot-bracket notation.
+
+    Returns:
+        float: Normalized count of unmatched '(' or ')' characters indicating structural invalidity.
+    """
     left = right = 0
     dots = rna_strct.count('.')
     for c in rna_strct:
@@ -41,6 +53,17 @@ def ss_validity_loss(rna_strct: str) -> float:
 
 
 def find_invalid_positions(struct: str) -> list:
+    """
+    Identify positions of invalid parentheses in a dot-bracket RNA structure.
+
+    Finds unmatched '(' or ')' positions by using a stack to track matching pairs.
+
+    Args:
+        struct (str): RNA secondary structure string in dot-bracket notation.
+
+    Returns:
+        list: List of integer indices corresponding to unmatched parentheses.
+    """
     stack, invalid = [], []
     for i, c in enumerate(struct):
         if c == '(': stack.append(i)
@@ -54,7 +77,19 @@ def find_invalid_positions(struct: str) -> list:
 
 
 def generate_svg_datauri(rna_seq: str, struct: str) -> str:
-    """生成 SVG 并返回 Base64 URI"""
+    """
+    Generate an SVG image of the RNA secondary structure and encode it as a Base64 data URI.
+
+    Uses ViennaRNA's SVG plotting functionality and caches SVG files in a temporary directory.
+    In case of error, returns an SVG image displaying the error message.
+
+    Args:
+        rna_seq (str): RNA sequence string.
+        struct (str): RNA secondary structure in dot-bracket notation.
+
+    Returns:
+        str: Base64-encoded data URI of the SVG image for embedding in HTML.
+    """
     try:
         path = TEMP_DIR / f"{hash(rna_seq+struct)}.svg"
         RNA.svg_rna_plot(rna_seq, struct, str(path))
@@ -69,7 +104,24 @@ def generate_svg_datauri(rna_seq: str, struct: str) -> str:
 
 
 def fold(rna_seq: str, gt_struct: str):
-    """展示 Ground Truth、ViennaRNA 与模型预测的结构对比"""
+    """
+    Predict and compare RNA secondary structures from ground truth, ViennaRNA, and model predictions.
+
+    Performs the following:
+    - Uses ViennaRNA to fold the input RNA sequence.
+    - Uses the loaded deep learning model (OmniGenome-186M-SSP) to predict structure.
+    - Validates and fixes the predicted structure.
+    - Generates SVG visualizations of all three structures.
+    - Computes matching accuracy between predictions and ground truth / ViennaRNA.
+    - Returns structures and combined visualization HTML.
+
+    Args:
+        rna_seq (str): RNA sequence string input by user.
+        gt_struct (str): Optional ground truth RNA secondary structure.
+
+    Returns:
+        tuple: (ground_truth_str, vienna_struct, predicted_struct, stats_text, combined_svg_html)
+    """
     if not rna_seq.strip():
         return "", "", "", ""
     # Ground Truth: 用户输入优先
@@ -108,7 +160,15 @@ def fold(rna_seq: str, gt_struct: str):
 
 
 def sample_rna_sequence():
-    """从测试集中抽样，返回序列与 Ground Truth 结构"""
+    """
+    Randomly sample an RNA sequence and its ground truth structure from a test dataset file.
+
+    Attempts to load 'toy_datasets/Archive2/test.json' and returns a random example.
+    If loading fails, returns an error message and empty structure.
+
+    Returns:
+        tuple: (sampled RNA sequence string, ground truth structure string)
+    """
     try:
         exs = [json.loads(l) for l in open('toy_datasets/Archive2/test.json')]
         ex = exs[np.random.randint(len(exs))]

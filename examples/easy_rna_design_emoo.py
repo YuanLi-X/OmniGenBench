@@ -22,102 +22,150 @@ import ViennaRNA
 from scipy.spatial.distance import hamming
 
 def random_bp_span(bp_span):
-    # bp = random.choices([bp_span, bp_span - random.randint(0, 20)], k=1)[0]
+    """
+    Randomly generate a base pair span value around the given input span.
+
+    The value is sampled within the range [bp_span - 50, bp_span + 50], but clipped to a maximum of 400 and a minimum of 0.
+
+    Args:
+        bp_span (int): The base span value around which to sample.
+
+    Returns:
+        int: A randomly chosen span value within the defined range.
+    """
     bp = random.choice(list(range(max(0, bp_span - 50), min(bp_span + 50, 400))))
     return bp
 
-def longest_bp_span(structure):
-    # 使用栈来跟踪括号的匹配
-    stack = []
-    max_span = 0  # 初始化最长span为0
 
-    # 遍历结构中的每个字符
+def longest_bp_span(structure):
+    """
+    Calculate the longest span between matching base pairs in a dot-bracket RNA secondary structure.
+
+    Uses a stack to identify matching parentheses and computes the span between them.
+
+    Args:
+        structure (str): RNA secondary structure in dot-bracket notation.
+
+    Returns:
+        int: The length of the longest span between matching base pairs.
+    """
+    stack = []
+    max_span = 0
+
     for i, char in enumerate(structure):
         if char == '(':
-            # 对于左括号，我们将其索引压入栈
             stack.append(i)
         elif char == ')':
-            # 对于右括号，我们从栈中弹出最近的左括号
             if stack:
                 left_index = stack.pop()
-                # 计算当前碱基对的span
                 current_span = i - left_index
-                # 更新最长的span
                 max_span = max(max_span, current_span)
 
     return max_span
 
-def predict_structure_single(sequence, bp_span=-1):
-    """Predicts the RNA structure for a single sequence."""
 
+def predict_structure_single(sequence, bp_span=-1):
+    """
+    Predict the RNA secondary structure for a single sequence using the ViennaRNA package.
+
+    Args:
+        sequence (str): RNA sequence.
+        bp_span (int, optional): Base pair span constraint. Default is -1 (unconstrained).
+
+    Returns:
+        tuple: A tuple containing the predicted structure (dot-bracket string) and the minimum free energy (float).
+    """
     md = ViennaRNA.md()
-    # md.max_bp_span = bp_span
     md.max_bp_span = max(random_bp_span(bp_span), 400)
     fc = ViennaRNA.fold_compound(sequence, md)
     (ss, mfe) = fc.mfe()
-    # (ss_pf, mfe_pf) = fc.pf()
     return ss, mfe
 
 
 def predict_structure(sequences, bp_span=-1):
-    """Predicts structures for multiple sequences using multithreading."""
+    """
+    Predict RNA secondary structures for a list of RNA sequences.
 
+    Args:
+        sequences (list of str): A list of RNA sequences.
+        bp_span (int, optional): Base pair span constraint. Default is -1 (unconstrained).
+
+    Returns:
+        list of tuple: A list of (structure, mfe) tuples for each input sequence.
+    """
     return [predict_structure_single(sequence, bp_span) for sequence in sequences]
 
+
 def genetic_algorithm_for_rna_design(structure, **kwargs):
+    """
+    Run a genetic algorithm to design RNA sequences that match a given target secondary structure.
+
+    Uses a masked language model (MLM) for sequence mutation and scoring, guided by base pairing fitness and minimum free energy.
+
+    Args:
+        structure (str): The target RNA secondary structure in dot-bracket notation.
+        **kwargs:
+            mutation_ratio (float): Probability of mutation at each nucleotide. Default is 0.1.
+            num_population (int): Size of the population in each generation. Default is 100.
+            num_generation (int): Number of generations to evolve. Default is 50.
+            model (str): Name or path of the pretrained masked language model.
+
+    Returns:
+        tuple:
+            - list: List of candidate RNA sequences that match the target structure.
+            - list: Evolution history containing populations from each generation.
+    """
     mutation_ratio = kwargs.get("mutation_ratio", 0.1)
     num_population = kwargs.get("num_population", 100)
     num_generation = kwargs.get("num_generation", 50)
-    # model = "anonymous8/OmniGenome-186M"
     model = kwargs.get("model", None)
-    # model = "anonymous8/OmniGenome-52M"
+
     device = autocuda.auto_cuda()
     tokenizer = AutoTokenizer.from_pretrained(model)
     model = AutoModelForMaskedLM.from_pretrained(model, trust_remote_code=True, torch_dtype=torch.float16)
     model.to(device).to(torch.float16)
-    # print(model)
+
     import tqdm
     histories = []
-    population = init_population(
-        structure,
-        num_population,
-        model=model,
-        tokenizer=tokenizer,
-    )
-    population = mlm_mutate(
-        population,
-        structure,
-        model=model,
-        tokenizer=tokenizer,
-        mutation_ratio=mutation_ratio,
-    )
-    for generation_id in tqdm.tqdm(
-            range(num_generation), desc="Designing RNA Sequence"
-    ):
+
+    population = init_population(structure, num_population, model=model, tokenizer=tokenizer)
+    population = mlm_mutate(population, structure, model=model, tokenizer=tokenizer, mutation_ratio=mutation_ratio)
+
+    for generation_id in tqdm.tqdm(range(num_generation), desc="Designing RNA Sequence"):
         next_generation = crossover(population)
-        next_generation = mlm_mutate(
-            next_generation,
-            structure,
-            model=model,
-            tokenizer=tokenizer,
-            mutation_ratio=mutation_ratio,
-        )
+        next_generation = mlm_mutate(next_generation, structure, model=model, tokenizer=tokenizer, mutation_ratio=mutation_ratio)
         next_generation = evaluate_structure_fitness(next_generation, structure)[:num_population]
-        # print(next_generation[0])
+
         candidate_sequences = [seq for seq, bp_span, score, mfe in next_generation if score == 0]
         histories.append(next_generation)
+
         if candidate_sequences:
             return candidate_sequences, histories
 
         population = [(seq, bp_span) for seq, bp_span, score, mfe in next_generation if seq not in observed]
         observed.update([seq for seq, bp_span, score, mfe in next_generation])
-        # next_generation += population[:num_population//10]
         next_generation = population
-        # print("population size:", len(next_generation))
+
     return population[0][0], histories
 
 
 def init_population(structure, num_population, model, tokenizer):
+    """
+    Initialize the RNA sequence population using a masked language model.
+
+    This function creates a population of RNA sequences by first generating masked templates
+    and then filling in the masked tokens using a pretrained masked language model (MLM).
+
+    Args:
+        structure (str): The target RNA secondary structure in dot-bracket notation.
+        num_population (int): Number of initial sequences to generate.
+        model (PreTrainedModel): A HuggingFace-compatible masked language model.
+        tokenizer (PreTrainedTokenizer): The tokenizer corresponding to the MLM.
+
+    Returns:
+        list of tuple: A list of (sequence, bp_span) tuples representing the initial population.
+    """
+
     population = []
     mlm_inputs = []
     for _ in range(num_population):
@@ -146,6 +194,22 @@ def init_population(structure, num_population, model, tokenizer):
 
 
 def mlm_mutate(population, structure, model, tokenizer, mutation_ratio):
+    """
+    Mutate RNA sequences in a population using a masked language model.
+
+    A subset of nucleotides in each sequence is randomly masked and replaced using MLM predictions.
+    The mutation helps introduce genetic diversity during the evolution process.
+
+    Args:
+        population (list of tuple): A list of (sequence, bp_span) tuples.
+        structure (str): The target RNA secondary structure used as conditional context for the MLM.
+        model (PreTrainedModel): A pretrained masked language model.
+        tokenizer (PreTrainedTokenizer): The tokenizer corresponding to the MLM.
+        mutation_ratio (float): The probability of each nucleotide being masked for mutation.
+
+    Returns:
+        list of tuple: A new list of mutated (sequence, bp_span) tuples.
+    """
     def mutate(sequence, mutation_rate):
         sequence = np.array(list(sequence), dtype=np.str_)
         probability_matrix = np.full(sequence.shape, mutation_rate)
@@ -195,6 +259,19 @@ def mlm_mutate(population, structure, model, tokenizer, mutation_ratio):
 
 
 def crossover(population, num_points=3):
+    """
+    Perform multi-point crossover on a population of RNA sequences.
+
+    This function simulates genetic crossover by randomly selecting pairs of parent sequences
+    and exchanging segments at random crossover points to produce new offspring sequences.
+
+    Args:
+        population (list of tuple): A list of (sequence, bp_span) tuples.
+        num_points (int): Number of crossover points to use when combining parents. Default is 3.
+
+    Returns:
+        list of tuple: A new list of offspring (sequence, bp_span) tuples, twice the size of the original population.
+    """
     _population = population
     population = [seq for seq, _ in population]
     population_size = len(population)
@@ -235,6 +312,21 @@ def crossover(population, num_points=3):
 
 
 def non_dominated_sorting(scores, mfe_values):
+    """
+    Perform non-dominated sorting based on structure similarity scores and MFE values.
+
+    This function partitions a set of solutions into different Pareto fronts using 
+    multi-objective optimization criteria: structural accuracy (lower Hamming score) 
+    and thermodynamic stability (lower MFE).
+
+    Args:
+        scores (list of float): Hamming distances between predicted and target structures.
+        mfe_values (list of float): Minimum Free Energy values for each RNA sequence.
+
+    Returns:
+        list of list: A list of Pareto fronts, where each front contains indices of solutions in that rank.
+    """
+
     num_solutions = len(scores)
     domination_count = [0] * num_solutions
     dominated_solutions = [[] for _ in range(num_solutions)]
@@ -268,6 +360,20 @@ def non_dominated_sorting(scores, mfe_values):
 
 
 def evaluate_structure_fitness(sequences, structure):
+    """
+    Evaluate the fitness of RNA sequences based on predicted structure and energy.
+
+    This function computes the predicted secondary structure and Minimum Free Energy (MFE)
+    for each sequence, compares the predicted structure to the target using Hamming distance,
+    and ranks sequences using non-dominated sorting on (Hamming, MFE).
+
+    Args:
+        sequences (list of tuple): A list of (sequence, bp_span) tuples.
+        structure (str): The target RNA secondary structure in dot-bracket notation.
+
+    Returns:
+        list of tuple: Sorted list of (sequence, bp_span, score, mfe), ranked by structural and energy fitness.
+    """
 
     structures_mfe = []
     with ProcessPoolExecutor() as executor:
@@ -299,6 +405,20 @@ def evaluate_structure_fitness(sequences, structure):
 
 
 def select_next_generation(next_generation, fronts):
+    """
+    Select the next generation of sequences based on Pareto front ranking.
+
+    This function flattens and merges individuals from Pareto fronts in order until
+    the population size limit is reached. Earlier fronts (higher rank) are preferred.
+
+    Args:
+        next_generation (list of tuple): Full list of candidate (sequence, bp_span, score, mfe) tuples.
+        fronts (list of list): List of Pareto fronts, each containing indices into `next_generation`.
+
+    Returns:
+        list of tuple: Truncated list of candidates to match original population size.
+    """
+
     sorted_population = []
     for front in fronts:
         front_population = [next_generation[i] for i in front]
@@ -312,6 +432,25 @@ def select_next_generation(next_generation, fronts):
 
 
 def mlm_predict(mlm_inputs, structure, model, tokenizer):
+    """
+    Predict masked tokens for a batch of input sequences using a masked language model (MLM).
+
+    This function takes a list of masked sequences appended with their corresponding RNA secondary structure,
+    tokenizes the input, performs inference with the MLM model in batches, and returns the predicted token IDs
+    for each position (excluding special tokens). The prediction is done with half-precision (float16) on GPU
+    and uses random seed for some stochastic behaviors.
+
+    Args:
+        mlm_inputs (list of str): List of masked RNA sequences combined with their target structure in string format.
+        structure (str): The target RNA secondary structure (used to determine output length).
+        model (transformers.PreTrainedModel): The pre-trained masked language model for token prediction.
+        tokenizer (transformers.PreTrainedTokenizer): The tokenizer corresponding to the MLM.
+
+    Returns:
+        torch.Tensor: Tensor of shape (batch_size, sequence_length) containing the predicted token IDs
+                      for each sequence, aligned with the input structure length.
+    """
+
     batch_size = 16
     all_outputs = []
     from transformers import set_seed

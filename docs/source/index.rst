@@ -11,4 +11,5 @@ Welcome to OmniGenBench's documentation!
    :caption: API Reference:
 
    modules
+   easy_rna_design_emoo
 

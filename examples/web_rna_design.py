@@ -24,17 +24,6 @@ import matplotlib.pyplot as plt
 def predict_structure_single(sequence):
     """Predicts the RNA structure for a single sequence."""
     return RNA.fold(sequence.replace("T", "U"))[0]
-#
-# def predict_structure(sequences):
-#     """Predicts structures for multiple sequences using multithreading."""
-#     if isinstance(sequences, list):
-#         with ThreadPoolExecutor() as executor:
-#             # Map the predict_structure_single function to each sequence
-#             structures = list(executor.map(predict_structure_single, sequences))
-#         return structures
-#     else:
-#         # Single sequence case
-#         return predict_structure_single(sequences)
 
 
 def predict_structure(sequences):
