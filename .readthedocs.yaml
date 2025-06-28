@@ -7,4 +7,4 @@ sphinx:
 python:
   version: "3.9"  # 也可以改成 "3.10"
   install:
-    - requirements: requirements.txt  # 如果你有依赖文件就加上
+    - requirements: ../requirements.txt  # 如果你有依赖文件就加上
