@@ -2,3 +2,10 @@
 findfile
 autocuda
 metric-visualizer
+myst-parser
+sphinxcontrib-mermaid
+sphinx-copybutton
+sphinx-autodoc-typehints
+sphinx
+sphinx-rtd-theme
+
