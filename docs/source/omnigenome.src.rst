@@ -1,5 +1,5 @@
 omnigenome.src package
-======================
+============================================
 
 Subpackages
 -----------
@@ -7,14 +7,8 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   omnigenome.src.abc
-   omnigenome.src.dataset
-   omnigenome.src.lora
-   omnigenome.src.metric
-   omnigenome.src.misc
-   omnigenome.src.model
-   omnigenome.src.tokenizer
-   omnigenome.src.trainer
+   omnigenome/src/src
+
 
 Module contents
 ---------------

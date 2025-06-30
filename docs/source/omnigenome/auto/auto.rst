@@ -1,5 +1,5 @@
-omnigenome package
-==================
+auto package
+============
 
 Subpackages
 -----------
@@ -7,15 +7,14 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   omnigenome.auto
-   omnigenome.cli
-   omnigenome.src
-   omnigenome.utility
+   auto.auto_bench
+   auto.auto_train
+   auto.bench_hub
 
 Module contents
 ---------------
 
-.. automodule:: omnigenome
+.. automodule:: auto
    :members:
    :undoc-members:
    :show-inheritance:

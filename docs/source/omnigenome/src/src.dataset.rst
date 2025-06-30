@@ -1,13 +1,13 @@
-omnigenome.src.lora package
-===========================
+src.dataset package
+===================
 
 Submodules
 ----------
 
-omnigenome.src.lora.lora\_model module
+src.dataset.omnigenome\_dataset module
 --------------------------------------
 
-.. automodule:: omnigenome.src.lora.lora_model
+.. automodule:: src.dataset.omnigenome_dataset
    :members:
    :undoc-members:
    :show-inheritance:
@@ -15,7 +15,7 @@ omnigenome.src.lora.lora\_model module
 Module contents
 ---------------
 
-.. automodule:: omnigenome.src.lora
+.. automodule:: src.dataset
    :members:
    :undoc-members:
    :show-inheritance:

@@ -25,14 +25,20 @@ release = '0.1'
 
 extensions = [
     'myst_parser',
-    "sphinxcontrib.mermaid",
-    "sphinx_copybutton",
+    'nbsphinx',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon',         # 支持 Google/NumPy 风格 docstring
+    'sphinx.ext.viewcode',         # 显示源码链接
+    'sphinx_autodoc_typehints',    # 支持类型提示
 ]
+
 
 source_suffix = {
     '.rst': 'restructuredtext',
     '.txt': 'markdown',
     '.md': 'markdown',
+    '.ipynb': 'nbsphinx',
 }
 
 myst_enable_extensions = [
@@ -70,4 +76,4 @@ import sys
 sys.path.insert(0, os.path.abspath('../../omnigenome'))
 
 
-extensions += ['sphinx.ext.autodoc', 'sphinx_autodoc_typehints']
+# extensions += ['sphinx.ext.autodoc', 'sphinx_autodoc_typehints']

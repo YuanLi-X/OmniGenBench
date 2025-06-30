@@ -20,8 +20,16 @@ from omnigenome.src.misc.utils import fprint
 
 
 def bench_command(args: Optional[list] = None):
-    """Entry function for BEACON benchmark testing (single model version)."""
+    """
+    Entry function to run the BEACON benchmark evaluation for a single genomic model.
 
+    This function handles argument parsing, model and tokenizer loading,
+    and initiates the benchmarking process using the AutoBench framework.
+
+    Args:
+        args (Optional[list], optional): List of command-line arguments. Defaults to None.
+            If None, uses sys.argv.
+    """
     parser = create_parser()
     parsed_args = parser.parse_args(args)
 
@@ -54,7 +62,12 @@ def bench_command(args: Optional[list] = None):
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """Create argument parser (single model version)."""
+    """
+    Creates an argument parser for the BEACON benchmark tool (single model version).
+
+    Returns:
+        argparse.ArgumentParser: The configured argument parser.
+    """
     parser = argparse.ArgumentParser(
         description="Genomic Foundation Model Benchmark Suite (Single Model)",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -120,6 +133,13 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 def run_bench():
+    """
+    Entry point to launch the benchmarking process via subprocess.
+
+    This function prints helpful runtime messages, determines the appropriate
+    launch command (with or without accelerate), sets up logging, and runs
+    the benchmark via a subprocess system call.
+    """
     fprint("Running benchmark, this may take a while, please be patient...")
     fprint("You can find the logs in the 'autobench_logs' directory.")
     fprint("You can find the metrics in the 'autobench_evaluations' directory.")
