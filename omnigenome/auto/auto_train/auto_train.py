@@ -31,6 +31,24 @@ autotrain_evaluations = "./autotrain_evaluations"
 
 
 class AutoTrain:
+    """
+    Automated training and evaluation handler for genomic foundation models.
+
+    This class manages dataset loading, model/tokenizer initialization,
+    training with different trainer backends (accelerate, HFTrainer, native),
+    metric logging, and saving results for benchmarking.
+
+    Attributes:
+        dataset (str): Dataset root directory or name.
+        model_name_or_path (str or model object): Model identifier or path.
+        tokenizer (str or tokenizer object): Tokenizer identifier or object.
+        autocast (str): Mixed precision mode (e.g., 'fp16').
+        overwrite (bool): Whether to overwrite existing results.
+        trainer (str): Trainer backend to use ('accelerate', 'hf_trainer', 'native').
+        model_name (str): Extracted model name from path or object.
+        mv (MetricVisualizer): Metric visualizer instance for logging and plotting.
+        mv_path (str): File path to save metric visualizer data.
+    """
     def __init__(
         self,
         dataset,
@@ -38,6 +56,18 @@ class AutoTrain:
         tokenizer=None,
         **kwargs,
     ):
+        """
+        Initialize AutoTrain instance.
+
+        Args:
+            dataset (str): Dataset directory or name.
+            model_name_or_path (str or model): Model path or model object.
+            tokenizer (optional, str or tokenizer): Tokenizer path or object.
+            **kwargs: Additional optional parameters:
+                - autocast (str): Mixed precision mode, default 'fp16'.
+                - overwrite (bool): Overwrite existing evaluation results.
+                - trainer (str): Trainer type to use.
+        """
         self.dataset = dataset.rstrip("/")
         self.autocast = kwargs.pop("autocast", "fp16")
         self.overwrite = kwargs.pop("overwrite", False)
@@ -69,6 +99,14 @@ class AutoTrain:
         self.bench_info()
 
     def bench_info(self):
+        """
+        Print and return benchmark info summary.
+
+        Includes dataset path, model name, tokenizer info, and metric visualizer path.
+
+        Returns:
+            str: Formatted information string.
+        """
         info = f"Dataset Root: {self.dataset}\n"
         info += f"Model Name or Path: {self.model_name}\n"
         info += f"Tokenizer: {self.tokenizer}\n"
@@ -77,6 +115,25 @@ class AutoTrain:
         return info
 
     def run(self, **kwargs):
+        """
+        Run training and evaluation based on dataset config and input overrides.
+
+        Loads dataset configuration, applies any parameter overrides passed in kwargs,
+        initializes tokenizer and model, supports LoRA application,
+        sets up training and validation datasets,
+        selects trainer backend and runs training loops,
+        logs metrics with MetricVisualizer, and saves outputs.
+
+        Args:
+            **kwargs: Configuration parameters that override dataset config values,
+                      such as learning rate, batch size, epochs, lora_config, etc.
+
+        Raises:
+            ValueError: If model_name_or_path is not provided.
+
+        Returns:
+            None
+        """
         """
 
         :param kwargs: parameters in kwargs will be used to override the default parameters in the dataset config

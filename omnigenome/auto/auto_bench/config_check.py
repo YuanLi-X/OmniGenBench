@@ -12,11 +12,18 @@ one_shot_messages = set()
 
 def config_check(args):
     """
-    Check the validity of the training configuration arguments.
+    Validate the training configuration parameters.
 
-    :param args: A dictionary containing the training configuration arguments.
+    This function performs sanity checks on selected keys in the training
+    configuration dictionary. For example, it verifies that `use_amp` is
+    either `True` or `False`. If a check fails, it raises a RuntimeError
+    with an explanatory message.
 
+    Parameters:
+        args (dict): A dictionary containing configuration options for training.
 
+    Raises:
+        RuntimeError: If a configuration value is invalid.
     """
     try:
         if "use_amp" in args:

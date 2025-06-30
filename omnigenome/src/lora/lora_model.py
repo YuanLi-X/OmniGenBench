@@ -12,6 +12,20 @@ from torch import nn
 from omnigenome.src.misc.utils import fprint
 
 def find_linear_target_modules(model, keyword_filter=None, use_full_path=True):
+    """
+    Find and return the names of all nn.Linear modules in the given model.
+
+    Args:
+        model (torch.nn.Module): The PyTorch model to search.
+        keyword_filter (str or list/tuple of str, optional): If provided, only
+            modules whose names match any of these keywords (case-insensitive) will be returned.
+            Defaults to None (no filtering).
+        use_full_path (bool, optional): If True, return full module names (e.g. "layer1.linear"),
+            otherwise return only the last component of the name (e.g. "linear"). Defaults to True.
+
+    Returns:
+        list[str]: Sorted list of module names that are instances of nn.Linear and match the filter.
+    """
     import re
     from torch import nn
 
@@ -32,6 +46,30 @@ def find_linear_target_modules(model, keyword_filter=None, use_full_path=True):
     return sorted(linear_modules)
 
 def auto_lora_model(model, **kwargs):
+    """
+    Automatically create and apply a LoRA (Low-Rank Adaptation) PEFT model wrapper to the given model.
+
+    This function configures LoRA parameters, identifies target modules for LoRA injection
+    (defaulting to linear layers), freezes the original model parameters, and returns
+    a LoRA-adapted model.
+
+    Args:
+        model (torch.nn.Module): The base model to be adapted with LoRA.
+        **kwargs: Additional LoRA configuration arguments including:
+            - target_modules (list[str], optional): Names of modules to apply LoRA to.
+            - use_rslora (bool, optional): Whether to use rSLoRA variant (default True).
+            - bias (str, optional): Bias mode for LoRA ("none", "all", or "lora_only").
+            - r (int, optional): LoRA rank.
+            - lora_alpha (int, optional): LoRA alpha scaling.
+            - lora_dropout (float, optional): Dropout rate for LoRA layers.
+            - keyword_filter (str or list[str], optional): Keyword filter for target module names.
+
+    Returns:
+        nn.Module: The LoRA-adapted model.
+
+    Raises:
+        AssertionError: If no target modules are found for LoRA injection.
+    """
     from peft import LoraConfig, get_peft_model
     from transformers import PretrainedConfig
 
@@ -74,6 +112,32 @@ def auto_lora_model(model, **kwargs):
     return lora_model
 
 class OmniLoraModel(nn.Module):
+    """
+    A wrapper PyTorch module that applies LoRA adaptation to a given base model.
+
+    This class initializes the LoRA model using `auto_lora_model`, moves the model to CPU by default,
+    and provides convenience methods forwarding calls to the underlying LoRA-adapted base model.
+
+    Args:
+        model (torch.nn.Module): The base model to be adapted with LoRA.
+        **kwargs: Additional LoRA configuration arguments passed to `auto_lora_model`.
+            Must include 'target_modules' specifying which modules to adapt.
+
+    Raises:
+        ValueError: If 'target_modules' argument is not provided.
+
+    Methods:
+        to(*args, **kwargs): Override of `nn.Module.to` to move LoRA model and keep track of device/dtype.
+        forward(*args, **kwargs): Forward pass through the LoRA-adapted model.
+        predict(*args, **kwargs): Calls the base model's predict method.
+        save(*args, **kwargs): Calls the base model's save method.
+        model_info(): Returns information from the base model.
+        set_loss_fn(fn): Sets loss function in the base model.
+        last_hidden_state_forward(**kwargs): Calls base model method for last hidden state forward pass.
+        tokenizer(): Returns tokenizer from base model.
+        config(): Returns configuration from base model.
+        model(): Returns underlying base model instance.
+    """
     def __init__(self, model, **kwargs):
         super(OmniLoraModel, self).__init__()
         target_modules = kwargs.get("target_modules", None)

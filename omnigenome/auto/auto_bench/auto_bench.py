@@ -32,6 +32,20 @@ from ... import __version__ as omnigenome_version
 
 
 class AutoBench:
+    """
+    A class for automatically benchmarking models on a given benchmark suite.
+
+    Attributes:
+        benchmark (str): Path to the benchmark directory.
+        model_name_or_path (str): Model name or path.
+        tokenizer (str or Tokenizer, optional): Tokenizer instance or path.
+        autocast (str): Autocast mode, e.g., 'fp16'.
+        overwrite (bool): Whether to overwrite existing metric visualizations.
+        trainer (str): Trainer type, e.g., 'native', 'hf_trainer', or 'accelerate'.
+        mv_path (str): Path to save metric visualizer results.
+        mv (MetricVisualizer): Metric visualizer instance.
+        bench_metadata: Benchmark metadata module.
+    """
     def __init__(
         self,
         benchmark,
@@ -39,6 +53,15 @@ class AutoBench:
         tokenizer=None,
         **kwargs,
     ):
+        """
+        Initialize the AutoBench class.
+
+        Args:
+            benchmark (str): Benchmark directory or name.
+            model_name_or_path (str or model): Model name or preloaded model.
+            tokenizer (str or tokenizer, optional): Tokenizer or tokenizer path.
+            **kwargs: Additional options like 'autocast', 'overwrite', 'trainer'.
+        """
         self.benchmark = benchmark.rstrip("/")
         self.autocast = kwargs.pop("autocast", "fp16")
         self.overwrite = kwargs.pop("overwrite", False)
@@ -86,6 +109,13 @@ class AutoBench:
         self.bench_info()
 
     def bench_info(self):
+        """
+        Print benchmark configuration information.
+
+        Returns:
+            str: A string summarizing benchmark information.
+        """
+        ...
         info = f"Benchmark Root: {self.benchmark}\n"
         info += f"Benchmark List: {self.bench_metadata.bench_list}\n"
         info += f"Model Name or Path: {self.model_name}\n"
@@ -97,9 +127,25 @@ class AutoBench:
 
     def run(self, **kwargs):
         """
+        Run the benchmark evaluation across all tasks defined in the benchmark metadata.
 
-        :param kwargs: parameters in kwargs will be used to override the default parameters in the benchmark config
-        :return:
+        This includes:
+        - Loading and overriding configuration for each task
+        - Initializing model and tokenizer
+        - Training using the specified trainer (native/hf_trainer/accelerate)
+        - Evaluating and logging metrics to MetricVisualizer
+        - Optionally applying LoRA modules
+        - Saving predictions if configured
+
+        Args:
+            **kwargs: Optional overrides for benchmark config parameters. Can include
+                      training hyperparameters, data options, or LoRA configuration.
+
+        Raises:
+            ValueError: If model_name_or_path is not provided.
+
+        Returns:
+            None. Metrics and predictions are saved to disk.
         """
         bs_scale = kwargs.pop("bs_scale", 1)
         # Import benchmark config

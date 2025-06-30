@@ -12,6 +12,26 @@ import json
 
 
 def main():
+    """
+    Command-line interface (CLI) entry point for OmniGenome.
+
+    Supports sub-commands; currently implements 'rna_design' to design RNA sequences
+    matching a given secondary structure using a genetic algorithm.
+
+    Command 'rna_design' arguments:
+        --structure (str, required): Target RNA secondary structure in dot-bracket notation.
+        --model (str): Pre-trained model path or HuggingFace model ID (default: "yangheng/OmniGenome-186M").
+        --mutation-ratio (float): Mutation ratio in genetic algorithm, between 0 and 1 (default: 0.5).
+        --num-population (int): Number of individuals in the population (default: 100).
+        --num-generation (int): Number of generations for evolution (default: 100).
+        --output-file (str): Optional JSON file path to save design results.
+
+    Validates input parameters, runs RNA design via OmniGenomeModelForRNADesign,
+    prints the best sequences found, and optionally saves results to JSON.
+
+    Raises:
+        ValueError: If mutation ratio is out of range or population/generation counts are non-positive.
+    """
     parser = argparse.ArgumentParser(description="OmniGenome CLI")
     subparsers = parser.add_subparsers(
         dest="command", required=True, help="Sub-command help"

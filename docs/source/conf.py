@@ -18,7 +18,7 @@ Email      :ly1837372873@163.com
 project = 'OmniGenBench'
 copyright = '2025, Yuan Li'
 author = 'Yuan Li'
-release = '0.1'
+release = '1.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -58,7 +58,7 @@ exclude_patterns = []
 html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     'analytics_anonymize_ip': False,
-    'logo_only': True,
+    'logo_only': False,
     'display_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': False,

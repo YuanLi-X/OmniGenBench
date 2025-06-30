@@ -21,12 +21,24 @@ from ..misc.utils import fprint, env_meta_info, RNA2StructureCache
 
 def load_omnigenome_dataset(benchmark=None, dataset='', **kwargs):
     """
-    Load the OmniGenome dataset for a specific benchmark and dataset name.
-    This function will search for the dataset files in the specified benchmark directory.
-    :param benchmark: The benchmark name, such as "BEACON", "GUE", "RGB", etc.
-    :param dataset: The dataset name, such as "train", "test", "valid", etc.
-    :param kwargs: Additional keyword arguments for the dataset.
-    :return: A collection of instances without tokenization.
+    Load the OmniGenome dataset for a specified benchmark and dataset name.
+    This function searches for dataset files under the benchmark directory,
+    supports multiple file formats, loads data into memory, optionally shuffles
+    and truncates examples based on provided kwargs.
+
+    Args:
+        benchmark (str or None): Name or path of the benchmark root directory
+            (e.g., "BEACON", "GUE", "RGB"). If None, dataset param is used.
+        dataset (str): Dataset name or path (e.g., "train", "test", "valid").
+        kwargs: Additional keyword arguments such as:
+            - shuffle (bool): Whether to shuffle the loaded examples (default True).
+            - max_examples (int or None): Maximum number of examples to load (default None).
+
+    Returns:
+        dict: A dictionary mapping dataset filenames to lists of example dictionaries.
+
+    Raises:
+        Exception: If the data file format is unknown.
     """
     import os
     from findfile import find_file, find_files
@@ -108,9 +120,13 @@ def load_omnigenome_dataset(benchmark=None, dataset='', **kwargs):
 
 def covert_input_to_tensor(data):
     """
-    Convert the data in the dataset to PyTorch tensors.
-    :param data: A list of dictionaries, where each dictionary represents a data sample.
-    :return: The data in the dataset as PyTorch tensors.
+    Recursively convert the fields of dataset examples to PyTorch tensors where applicable.
+
+    Args:
+        data (list): A list of dictionaries representing dataset samples.
+
+    Returns:
+        list: The same data list with fields converted to torch.Tensor where possible.
     """
     for d in data:
         if isinstance(d, dict) or isinstance(d, BatchEncoding):
@@ -129,10 +145,23 @@ def covert_input_to_tensor(data):
 
 
 class OmniGenomeDict(dict):
+    """
+    A subclass of dict that adds a `.to(device)` method to move all tensor values
+    within the dictionary to the specified device (e.g., 'cuda' or 'cpu').
+    """
     def __init__(self, *args, **kwargs):
         super(OmniGenomeDict, self).__init__(*args, **kwargs)
 
     def to(self, device):
+        """
+        Move all tensor values in the dictionary to the given device.
+
+        Args:
+            device (str or torch.device): Target device.
+
+        Returns:
+            OmniGenomeDict: The dictionary itself with tensors moved.
+        """
         for key, value in self.items():
             if isinstance(value, torch.Tensor):
                 self[key] = value.to(device)
@@ -140,6 +169,23 @@ class OmniGenomeDict(dict):
 
 
 class OmniGenomeDataset(torch.utils.data.Dataset):
+    """
+    PyTorch Dataset class for OmniGenome data.
+
+    Loads raw data from files or lists, applies tokenization and preprocessing,
+    handles padding/truncation, shuffling, label mapping, and provides data access.
+
+    Args:
+        data_source (str or list): Path(s) to dataset files or list of examples.
+        tokenizer: Tokenizer instance to tokenize sequences.
+        max_length (int, optional): Maximum token length for sequences.
+        kwargs: Additional options such as:
+            - label2id (dict, optional): Label to integer id mapping.
+            - shuffle (bool): Whether to shuffle examples (default True).
+            - structure_in (bool): Whether to append RNA structure info (default False).
+            - drop_long_seq (bool): Whether to drop sequences longer than max_length (default False).
+            - max_examples (int or None): Maximum examples to load.
+    """
     def __init__(self, data_source, tokenizer, max_length=None, **kwargs):
         super(OmniGenomeDataset, self).__init__()
         self.metadata = env_meta_info()
@@ -216,8 +262,10 @@ class OmniGenomeDataset(torch.utils.data.Dataset):
 
     def print_label_distribution(self):
         """
-        Print the distribution of labels for 0-dimensional (scalar) labels.
-        This is useful for classification tasks where each sample has a single label.
+        Print label distribution for scalar classification labels.
+
+        Useful for classification tasks with scalar labels to visualize
+        the frequency and percentage of each label in the dataset.
         """
         # Check if we have scalar labels
         if self.data and "labels" in self.data[0]:
@@ -260,6 +308,15 @@ class OmniGenomeDataset(torch.utils.data.Dataset):
             fprint("No labels found in the dataset.")
 
     def to(self, device):
+        """
+        Move all tensors in the dataset to the specified device.
+
+        Args:
+            device (str or torch.device): Target device.
+
+        Returns:
+            OmniGenomeDataset: The dataset instance itself.
+        """
         for data_item in self.data:
             for key, value in data_item.items():
                 if isinstance(value, torch.Tensor):
@@ -267,6 +324,18 @@ class OmniGenomeDataset(torch.utils.data.Dataset):
         return self
 
     def _pad_and_truncate(self, pad_value=0):
+        """
+        Pad or truncate sequences and labels in the dataset to uniform length.
+
+        Pads input_ids, attention_mask, labels and other fields to the
+        maximum sequence length, aligned to multiples of 8 for efficiency.
+
+        Args:
+            pad_value (int, optional): Default padding value for unknown fields.
+
+        Returns:
+            list: The padded and truncated dataset samples.
+        """
         if hasattr(self.tokenizer, "pad_token_id"):
             pad_token_id = self.tokenizer.pad_token_id
         else:
@@ -366,6 +435,18 @@ class OmniGenomeDataset(torch.utils.data.Dataset):
         return self.data
 
     def load_data_source(self, data_source, **kwargs):
+        """
+        Load examples from data files or list into memory.
+
+        Supports CSV, JSON, Parquet, TXT/DAT formats.
+
+        Args:
+            data_source (str or list): File path(s) or list of examples.
+            kwargs: Additional options (e.g. max_examples, shuffle).
+
+        Returns:
+            list: Loaded examples as list of dicts.
+        """
         examples = []
         max_examples = kwargs.get("max_examples", None)
         if not isinstance(data_source, list):
@@ -419,11 +500,30 @@ class OmniGenomeDataset(torch.utils.data.Dataset):
         return examples
 
     def prepare_input(self, instance, **kwargs):
+        """
+        Prepare a single example for model input.
+
+        This method should be implemented in subclasses to tokenize and
+        process each example appropriately.
+
+        Args:
+            instance (dict): Raw example data.
+
+        Returns:
+            dict: Tokenized and preprocessed example data.
+
+        Raises:
+            NotImplementedError: If not implemented in subclass.
+        """
         raise NotImplementedError(
             "The prepare_input() function should be implemented for your dataset."
         )
 
     def _preprocessing(self):
+        """
+        Basic preprocessing on raw examples, renaming fields and appending
+        RNA secondary structure if needed.
+        """
         for idx, ex in enumerate(self.examples):
             if (
                 "seq" in self.examples[idx]
@@ -448,6 +548,10 @@ class OmniGenomeDataset(torch.utils.data.Dataset):
                     ] = f"{sequence}{self.tokenizer.eos_token}{structure}"
 
     def _postprocessing(self):
+        """
+        Postprocessing after tokenization to finalize label fields and
+        optionally print label distribution.
+        """
         for idx, ex in enumerate(self.data):
             if "label" in self.data[idx]:
                 self.data[idx]["labels"] = self.data[idx]["label"]
@@ -463,22 +567,65 @@ class OmniGenomeDataset(torch.utils.data.Dataset):
             self.print_label_distribution()
 
     def __len__(self):
+        """
+        Returns the number of samples in the dataset.
+        """
         return len(self.data)
 
     def __getitem__(self, idx):
+        """
+        Get the example at index `idx` as an OmniGenomeDict.
+
+        Args:
+            idx (int): Index of the example.
+
+        Returns:
+            OmniGenomeDict: Example data dictionary.
+        """
         # convert the data item to a omnigenome dict
         return OmniGenomeDict(self.data[idx])
 
     def sample(self, n=1):
+        """
+        Randomly sample `n` examples from the dataset.
+
+        Args:
+            n (int): Number of samples to return.
+
+        Returns:
+            list: List of sampled examples.
+        """
         return random.sample(self.data, n)
 
     def get_column(self, column_name):
+        """
+        Retrieve a list of values from a specific column in the dataset.
+
+        Args:
+            column_name (str): The key to extract from each data item.
+
+        Returns:
+            list: List of values from the column.
+        """
         return [data_item[column_name] for data_item in self.data]
 
     def get_labels(self):
+        """
+        Get the set of unique labels in the dataset.
+
+        Returns:
+            set: Unique labels.
+        """
         return set(self.get_column("labels"))
 
     def get_inputs_length(self):
+        """
+        Calculate statistics on input and label lengths for the dataset.
+
+        Returns:
+            dict: Dictionary with average, max and min lengths for
+                  sequences and labels.
+        """
         if hasattr(self.tokenizer, "pad_token_id"):
             pad_token_id = self.tokenizer.pad_token_id
         else:
@@ -500,11 +647,23 @@ class OmniGenomeDataset(torch.utils.data.Dataset):
         return length
 
     def _max_labels_length(self):
+        """
+        Compute the maximum length among all label sequences in the dataset.
+
+        Returns:
+            int: Maximum label sequence length.
+        """
         if self.data[0]["labels"].dim() > 0:
             return max([len(ex["labels"]) for ex in self.data])
         else:
             return 1
 
     def __iter__(self):
+        """
+        Yield each example in the dataset as an OmniGenomeDict.
+
+        Returns:
+            Iterator[OmniGenomeDict]
+        """
         for data_item in self.data:
             yield OmniGenomeDict(data_item)

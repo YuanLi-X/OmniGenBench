@@ -24,11 +24,51 @@ warnings.filterwarnings("once")
 
 
 def count_parameters(model):
+    """
+    Count the number of trainable parameters in the model.
+
+    Args:
+        model (torch.nn.Module): The PyTorch model.
+
+    Returns:
+        int: Number of trainable parameters.
+    """
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 class OmniGenomeModel(torch.nn.Module):
+    """
+    A general PyTorch model wrapper for OmniGenome that supports flexible
+    model loading, saving, forward pass, loss computation, and inference.
+
+    This class integrates HuggingFace transformers models with additional
+    features such as dynamic config loading, tokenizer integration, and
+    metadata management.
+
+    Attributes:
+        model (torch.nn.Module): The core transformer model.
+        tokenizer: Tokenizer associated with the model.
+        loss_fn: Optional loss function for training.
+        config: Model configuration object.
+        metadata (dict): Environment and model metadata.
+    """
     def __init__(self, config_or_model_model, tokenizer, *args, **kwargs):
+        """
+        Initialize the OmniGenomeModel.
+
+        Args:
+            config_or_model_model (str, torch.nn.Module, or AutoConfig):
+                Model identifier or pre-built model or config.
+            tokenizer: Tokenizer object.
+            *args, **kwargs: Additional arguments and keyword arguments.
+
+        Keyword Args:
+            label2id (dict, optional): Mapping from label names to IDs.
+            trust_remote_code (bool, optional): Whether to trust remote code.
+            num_labels (int, optional): Number of classification labels.
+            ignore_mismatched_sizes (bool, optional): Allow size mismatch when loading.
+            dropout (float, optional): Dropout rate.
+        """
         self.loss_fn = None
 
         label2id = kwargs.pop("label2id", None)
@@ -158,8 +198,13 @@ class OmniGenomeModel(torch.nn.Module):
 
     def last_hidden_state_forward(self, **inputs):
         """
-        :param inputs: The inputs to the model
-        :return: The last hidden state of the model and the secondary structure information if ss is not None
+        Forward pass to retrieve last hidden states from the model.
+
+        Args:
+            **inputs: Keyword arguments containing inputs for the model.
+
+        Returns:
+            torch.Tensor: Last hidden state tensor from the model.
         """
         model = self.model
         input_mapping = {}
@@ -238,24 +283,65 @@ class OmniGenomeModel(torch.nn.Module):
         return last_hidden_state
 
     def loss_function(self, logits, labels):
+        """
+        Placeholder for loss computation function.
+
+        Override this method in subclasses to implement custom loss.
+
+        Args:
+            logits: Model output logits.
+            labels: Ground truth labels.
+
+        Raises:
+            NotImplementedError: Always, if not overridden.
+        """
         raise NotImplementedError(
             "The loss_function() function should be implemented for your model."
         )
 
     def set_loss_fn(self, loss_function):
+        """
+        Set the loss function used during training.
+
+        Args:
+            loss_function (callable): Loss function to be set.
+        """
         self.loss_fn = loss_function
 
     def predict(self, sequence_or_inputs, **kwargs):
+        """
+        Predict outputs from raw input sequences or tokenized inputs.
+
+        Args:
+            sequence_or_inputs: Raw sequences or tokenized inputs.
+            **kwargs: Additional arguments passed to tokenizer.
+
+        Returns:
+            Model outputs without gradient computation.
+        """
         # Please implement the predict() function for your model
         raw_outputs = self._forward_from_raw_input(sequence_or_inputs, **kwargs)
         return raw_outputs
 
     def inference(self, sequence_or_inputs, **kwargs):
-        # Please implement the predict() function for your model
+        """
+        Alias to predict() for inference mode.
+
+        Args and Returns are the same as predict().
+        """
         raw_outputs = self._forward_from_raw_input(sequence_or_inputs, **kwargs)
         return raw_outputs
 
     def __call__(self, **inputs):
+        """
+        Forward call for integration with transformers Trainer or native training loop.
+
+        Args:
+            **inputs: Tokenized inputs including optional labels.
+
+        Returns:
+            dict: Model outputs including optional loss.
+        """
         # For transformer trainer integration, we need to pop the "inputs" to be a tokenized inputs object.
         # For native trainer, the inputs are already tokenized inputs object
         labels = inputs.pop("labels", None)
@@ -284,6 +370,19 @@ class OmniGenomeModel(torch.nn.Module):
         return outputs
 
     def _calculate_loss(self, outputs, labels):
+        """
+        Calculate loss based on model outputs and labels.
+
+        Args:
+            outputs (dict): Outputs from forward pass.
+            labels: Ground truth labels.
+
+        Returns:
+            Computed loss tensor.
+
+        Raises:
+            RuntimeError: If outputs do not contain logits or loss.
+        """
         loss = outputs.get("loss", None)
         if loss is not None:
             return outputs
@@ -299,6 +398,15 @@ class OmniGenomeModel(torch.nn.Module):
             )
 
     def save(self, path, overwrite=False, dtype=torch.float16, **kwargs):
+        """
+        Save the entire model, tokenizer, metadata, and state dict to the specified path.
+
+        Args:
+            path (str): Directory to save the model.
+            overwrite (bool): Whether to overwrite existing directory. Default False.
+            dtype (torch.dtype): Data type to cast the model before saving. Default torch.float16.
+            **kwargs: Additional kwargs (currently unused).
+        """
         self.eval()
 
         if os.path.exists(path) and not overwrite:
@@ -343,6 +451,16 @@ class OmniGenomeModel(torch.nn.Module):
         fprint(f"The model is saved to {path}.")
 
     def load(self, path, **kwargs):
+        """
+        Load the model from the given directory.
+
+        Args:
+            path (str): Directory where the model is saved.
+            **kwargs: Additional args passed to AutoConfig.from_pretrained (e.g., device).
+
+        Returns:
+            self: The loaded model instance.
+        """
         with open(f"{path}/metadata.json", "r", encoding="utf8") as f:
             metadata = json.load(f)
 
@@ -396,6 +514,18 @@ class OmniGenomeModel(torch.nn.Module):
         return self
 
     def _forward_from_raw_input(self, sequence_or_inputs, **kwargs):
+        """
+        Convert raw input sequences into tokenized tensors and run model inference.
+
+        Args:
+            sequence_or_inputs (list or BatchEncoding or dict):
+                Raw sequences or already tokenized inputs.
+            **kwargs:
+                Arguments for tokenizer (padding, truncation, max_length, etc.).
+
+        Returns:
+            dict: Model outputs including logits and other relevant tensors.
+        """
         if not isinstance(sequence_or_inputs, BatchEncoding) and not isinstance(
             sequence_or_inputs, dict
         ):
@@ -417,6 +547,17 @@ class OmniGenomeModel(torch.nn.Module):
 
     @staticmethod
     def from_pretrained(model_name_or_path, tokenizer, *args, **kwargs):
+        """
+        Factory method to instantiate OmniGenomeModel from pretrained weights.
+
+        Args:
+            model_name_or_path (str): Pretrained model path or model name.
+            tokenizer: Tokenizer object or None to load default.
+            *args, **kwargs: Additional arguments for config and model loading.
+
+        Returns:
+            OmniGenomeModel: Initialized model instance.
+        """
         config = kwargs.pop("config", None)
         if config is None:
             config = AutoConfig.from_pretrained(model_name_or_path, **kwargs)
@@ -426,6 +567,13 @@ class OmniGenomeModel(torch.nn.Module):
         return OmniGenomeModel(config, base_model, tokenizer, *args, **kwargs)
 
     def model_info(self):
+        """
+        Print and return a summary string of the model including name, metadata,
+        config, architecture, and parameter count.
+
+        Returns:
+            str: Summary info string.
+        """
         info = f"Model Name: {self.__class__.__name__}\n"
         info += f"Model Metadata: {self.metadata}\n"
         info += f"Base Model Name: {self.config.name_or_path}\n"

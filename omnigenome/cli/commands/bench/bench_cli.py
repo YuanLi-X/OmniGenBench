@@ -20,8 +20,31 @@ from ..base import BaseCommand
 
 
 class BenchCommand(BaseCommand):
+    """
+    Command class to handle the 'autobench' sub-command for running genomic model benchmarks.
+
+    Provides command-line argument parsing, special handling for specific model types,
+    initialization and execution of the AutoBench benchmarking process,
+    and logs management for benchmark runs.
+    """
     @classmethod
     def register_command(cls, subparsers):
+        """
+        Register the 'autobench' command and its arguments to the CLI subparsers.
+
+        Args:
+            subparsers (argparse._SubParsersAction): Subparsers object from argparse
+                to which the 'autobench' command is added.
+
+        Sets up arguments including:
+            - benchmark root directory choice,
+            - tokenizer path,
+            - model path (required),
+            - overwrite flag,
+            - batch size scale,
+            - trainer backend selection,
+            plus additional common arguments via `add_common_arguments`.
+        """
         parser = subparsers.add_parser(
             "autobench",
             help="Run Auto-benchmarking for Genomic Foundation Models.",
@@ -82,6 +105,19 @@ class BenchCommand(BaseCommand):
 
     @staticmethod
     def execute(args: argparse.Namespace):
+        """
+        Execute the autobench command with the provided arguments.
+
+        - Prints user info messages about logs and usage.
+        - Handles special loading for 'multimolecule' models.
+        - Creates and runs the AutoBench instance with given parameters.
+        - Manages log directory and file naming.
+        - Constructs and runs the benchmark command line, redirecting output to logs,
+          with platform-specific handling for Windows and Unix-like systems.
+
+        Args:
+            args (argparse.Namespace): Parsed command-line arguments.
+        """
         fprint("Running benchmark, this may take a while, please be patient...")
         fprint("You can find the logs in the 'autobench_logs' directory.")
         fprint("You can find the metrics in the 'autobench_evaluations' directory.")
@@ -132,4 +168,10 @@ class BenchCommand(BaseCommand):
 
 
 def register_command(subparsers):
+    """
+    Register the BenchCommand with the CLI subparsers.
+
+    Args:
+        subparsers (argparse._SubParsersAction): Subparsers object to register the command.
+    """
     BenchCommand.register_command(subparsers)

@@ -20,8 +20,16 @@ from omnigenome.src.misc.utils import fprint
 
 
 def train_command(args: Optional[list] = None):
-    """Entry function for BEACON benchmark testing (single model version)."""
+    """
+    Entry point for BEACON benchmark testing with a single model.
 
+    Parses command line arguments to load the model, tokenizer, and dataset,
+    then initializes AutoTrain and runs training or evaluation.
+
+    Args:
+        args (Optional[list]): List of arguments to parse. Defaults to None, which
+                               means using sys.argv.
+    """
     parser = create_parser()
     parsed_args = parser.parse_args(args)
 
@@ -54,7 +62,15 @@ def train_command(args: Optional[list] = None):
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """Create argument parser (single model version)."""
+    """
+    Creates and returns the command line argument parser for the training script.
+
+    Defines required and optional arguments including dataset path, model path,
+    tokenizer path, overwrite flag, batch size scale, trainer type, and mixed precision mode.
+
+    Returns:
+        argparse.ArgumentParser: Configured argument parser.
+    """
     parser = argparse.ArgumentParser(
         description="Genomic Foundation Model Benchmark Suite (Single Model)",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -117,6 +133,16 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 def run_train():
+    """
+    Runs the training command with appropriate environment setup and logging.
+
+    - Prints helpful info about logs and configuration.
+    - Creates log directory and generates a timestamped log filename.
+    - Determines mixed precision mode from command line arguments.
+    - Builds and executes the command to launch training using either 'accelerate' or native python.
+    - Redirects command output to log files (platform-specific).
+    - Exits the current process after launching the training command.
+    """
     fprint("Running AutoTraining, this may take a while, please be patient...")
     fprint("You can find the logs in the 'autobench_logs' directory.")
     fprint("You can find the metrics in the 'autobench_evaluations' directory.")
