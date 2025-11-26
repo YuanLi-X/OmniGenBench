@@ -8,7 +8,7 @@ pandas
 ViennaRNA
 scikit-learn
 accelerate
-transformers>=4.46.0
+transformers>=4.55.0
 huggingface_hub>=0.20.0
 packaging
 peft
